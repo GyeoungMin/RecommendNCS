@@ -112,7 +112,7 @@ class Crawler:
     def musics(self, xpath = '//*[@id="contents"]/ytd-rich-item-renderer', start_index = 0, end_index = None):
         time.sleep(1)
         if end_index is not None:
-            times = end_index / 16 if end_index > 16 else 1
+            times = end_index // 16 if end_index > 16 else 1
         else : times = 0
         self.scroll_to_bottom(times=times)
         elements = self.driver.find_elements(By.XPATH, xpath)
