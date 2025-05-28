@@ -8,8 +8,10 @@ from selenium.common.exceptions import NoSuchElementException, StaleElementRefer
 import re
 import time
 import datetime
-from deep_translator import GoogleTranslator
 import logging
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
 
 # 로거 생성
 logger = logging.getLogger('crawler_logger')
@@ -37,7 +39,6 @@ class Crawler:
         self.URL = url
         self.driver = None
         self.music_ids = None
-        self.translator = GoogleTranslator(source='auto', target='ko')
 
     def driver_options(self):
         user_agent = ''
@@ -94,14 +95,35 @@ class Crawler:
             for i in range(times):
                 self.scroll_page(scroll_target, wait_time)
 
+    def scroll_until_comments_loaded(self, delay=1):
+        """
+        댓글 로딩 스피너가 사라질 때까지 스크롤 반복
+        """
+        while True:
+            try:
+                spinner_xpath = '/html/body/ytd-app/div[1]/ytd-page-manager/ytd-watch-flexy/div[5]/div[1]/div/div[2]/ytd-comments/ytd-item-section-renderer/div[3]/ytd-continuation-item-renderer'
+                # 스피너 element 탐지
+                spinner = self.driver.find_element(By.XPATH, spinner_xpath)
+                # print("🔄 댓글 로딩 중... 스크롤 진행")
+                # 끝까지 스크롤
+                self.driver.execute_script("window.scrollTo(0, document.documentElement.scrollHeight);")
+                time.sleep(delay)  # 약간의 딜레이를 줘야 렌더링이 따라옴
+            except NoSuchElementException:
+                print("✅ 모든 댓글 로딩 완료")
+                break
+
+
     def music(self, video_id):
+        title_xpath = '//*[@id="title"]/h1/yt-formatted-string'
         title = None
         reviews = None
         self.driver.get(self.URL + '/watch?v=' + video_id)
+        WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.XPATH, title_xpath)))
         time.sleep(1)
-        self.scroll_to_bottom()
+        self.scroll_to_bottom(times=2, wait_time=1)
+        self.scroll_until_comments_loaded()
+        time.sleep(1)
         try:
-            title_xpath = '//*[@id="title"]/h1/yt-formatted-string'
             title = self.driver.find_element(By.XPATH, title_xpath).text
             reviews = self.reviews(video_id)
         except NoSuchElementException as e:
@@ -144,9 +166,11 @@ class Crawler:
 
     def reviews(self, video_id, xpath = '//*[@id="contents"]/ytd-comment-thread-renderer'):
         reviews = ''
+        index = 0
         try:
             elements = self.driver.find_elements(By.XPATH, xpath)
             for idx, element in enumerate(elements):
+                index = idx
                 try:
                     content = element.find_element(By.XPATH, './/*[@id="content-text"]/span')
                     review = content.text
@@ -157,8 +181,7 @@ class Crawler:
                 except NoSuchElementException as e:
                     logger.error(f"[{video_id},{idx}], Comment content not found: {e}")
                     continue
-
-            logger.info(f"{video_id} - Extracted {len(elements)} comments.")
+            logger.info(f"{video_id} - Extracted {index+1}/{len(elements)} comments.")
         except Exception as e:
             logger.error(f"{video_id}, Failed to extract reviews : {e}")
 
