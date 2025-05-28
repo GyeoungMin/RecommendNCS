@@ -39,13 +39,15 @@ class Crawler:
         self.URL = url
         self.driver = None
         self.music_ids = None
+        self.wait = None
 
     def driver_options(self):
         user_agent = ''
         options = ChromeOptions()
         options.add_argument('user_agent=' + user_agent)
-        # options.add_argument('--start-fullscreen')
-        options.add_argument('--blink-settings=imagesEnabled=false')
+        options.add_argument("--headless")
+        # options.add_argument('--start-maximized')
+        # options.add_argument('--blink-settings=imagesEnabled=false')
         # options.add_argument('incognito')
         options.add_argument('lang=ko_KR')
         return options
@@ -57,6 +59,7 @@ class Crawler:
 
     def start_driver(self):
         if self.driver is None : self.driver = self.init_driver()
+        if self.wait is None : self.wait = WebDriverWait(self.driver, 10)
         self.driver.get(self.URL + '/@NoCopyrightSounds/videos')
         time.sleep(2)
 
@@ -95,23 +98,33 @@ class Crawler:
             for i in range(times):
                 self.scroll_page(scroll_target, wait_time)
 
-    def scroll_until_comments_loaded(self, delay=1):
+    def scroll_until_comments_loaded(self, delay=2):
         """
         댓글 로딩 스피너가 사라질 때까지 스크롤 반복
         """
+        spinner_xpath = '/html/body/ytd-app/div[1]/ytd-page-manager/ytd-watch-flexy/div[5]/div[1]/div/div[2]/ytd-comments/ytd-item-section-renderer/div[3]/ytd-continuation-item-renderer'
+        retries = 0
+        last_height = self.driver.execute_script("return document.documentElement.scrollHeight")
         while True:
             try:
-                spinner_xpath = '/html/body/ytd-app/div[1]/ytd-page-manager/ytd-watch-flexy/div[5]/div[1]/div/div[2]/ytd-comments/ytd-item-section-renderer/div[3]/ytd-continuation-item-renderer'
-                # 스피너 element 탐지
-                spinner = self.driver.find_element(By.XPATH, spinner_xpath)
+                self.driver.find_element(By.XPATH, spinner_xpath)
                 # print("🔄 댓글 로딩 중... 스크롤 진행")
-                # 끝까지 스크롤
                 self.driver.execute_script("window.scrollTo(0, document.documentElement.scrollHeight);")
                 time.sleep(delay)  # 약간의 딜레이를 줘야 렌더링이 따라옴
-            except NoSuchElementException:
-                print("✅ 모든 댓글 로딩 완료")
-                break
+                new_height = self.driver.execute_script("return document.documentElement.scrollHeight")
 
+                if new_height != last_height :
+                    last_height = new_height
+                    retries = 0
+
+            except NoSuchElementException:
+                new_height = self.driver.execute_script("return document.documentElement.scrollHeight")
+                if new_height == last_height : break;
+                else :
+                    retries += 1
+                    if retries >= 3 : break
+            finally:
+                self.driver.execute_script("window.scrollTo(0, document.documentElement.scrollHeight);")
 
     def music(self, video_id):
         title_xpath = '//*[@id="title"]/h1/yt-formatted-string'
