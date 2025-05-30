@@ -1,0 +1,14 @@
+<RCC>
+  <qresource prefix="imgs">
+    <file>img/btn1.png</file>
+    <file>img/btn2.png</file>
+    <file>img/btn3.png</file>
+    <file>img/btn4.png</file>
+    <file>img/btn5.png</file>
+    <file>img/btn6.png</file>
+    <file>img/btn7.png</file>
+    <file>img/btn8.png</file>
+    <file>img/btn9.png</file>
+    <file>img/replay_logo3.png</file>
+  </qresource>
+</RCC>
